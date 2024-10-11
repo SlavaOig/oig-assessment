@@ -7,7 +7,7 @@ Thank you for taking the time to give us an insight into your development style.
 Make sure that you can show a working prototype of the application.
 
 ## The application
-Create an application in which the end-user can plan and manage questionnaires. A questionnaire in this context is a
+Create an application in which the end-user can plan and manage surveys. A survey in this context is a
 means of gathering answers to questions online on a large scale.
 
 ### Prerequisites
@@ -25,14 +25,14 @@ Use diagrams to represent your vision. You can use any diagram tool or even piec
 
 ### Use-cases
 The following use cases are the foundation for the application:
-- As a system user, I want to be able to schedule a questionnaire so that I can ask my target group about a
+- As a system user, I want to be able to schedule a survey so that I can ask my target group about a
 topic/case.
-- As the owner of a scheduled questionnaire, I want to be able to reschedule the questionnaire as long as it has
+- As the owner of a scheduled survey, I want to be able to reschedule the survey as long as it has
 not started.
-- As the owner of an active questionnaire, I want to be able to close the questionnaire at will.
+- As the owner of an active survey, I want to be able to close the survey at will.
 
 ### Static structure
-A questionnaire should at least consist of the following:
+A survey should at least consist of the following:
 - Name
 - Startdate/time
 - Enddate/time
@@ -40,27 +40,27 @@ A questionnaire should at least consist of the following:
 
 ### Business rules
 The following business-rules are applicable:
-- A questionnaire can only be scheduled for a future date/time.
+- A survey can only be scheduled for a future date/time.
 - No "retroactive" changes are allowed.
-A questionnaire is planned for the future and will be completed in the future.
+A survey is planned for the future and will be completed in the future.
 - The end date and time are at least one hour after the beginning date and time.
-- A questionnaire will always exist in one of the following states:
-    * Concept: The questionnaire is intentionally inactive, and cannot be administered.
-    * Scheduled: The start date and time of the questionnaire are in the future. No questions can be answered yet.
-    * Active: the questionnaire's start date and time are in the past, while its end date and time are in the future. Only in this state can the questions be answered.
-    * Completed: The questionnaire's end date and time have passed. No more questions can be answered.
+- A survey will always exist in one of the following states:
+    * Concept: The survey is intentionally inactive, and cannot be administered.
+    * Scheduled: The start date and time of the survey are in the future. No questions can be answered yet.
+    * Active: the survey's start date and time are in the past, while its end date and time are in the future. Only in this state can the questions be answered.
+    * Completed: The survey's end date and time have passed. No more questions can be answered.
 
 The mentioned statuses are sequential, never skip a step, and cannot be reversed.
 
 ### Interface
 Build at least the following screens:
-- Create-screen for a questionnaire
-- Update-screen for a questionnaire
-- List page of questionnaires
+- Create-screen for a survey
+- Update-screen for a survey
+- List page of surveys
     * Display at least the name, startdate/time and enddate/time
     * Sort the overview-screen by startdate/time, enddate/time (by default)
-    * Create an intuitive search-function for questionnaires
-- A stub for the "answering-screen"; it is in this stage sufficient to display the questionnaire status.
+    * Create an intuitive search-function for surveys
+- A stub for the "answering-screen"; it is in this stage sufficient to display the survey status.
 
 ### Non-functionals
 - Create or use a pleasant user experience for the end user. Keep it simple but attractive. Explain briefly.
@@ -71,12 +71,12 @@ documented, to what extent, and in what way.
 You do not need to create a tangible product as an answer to the following questions; this is about making an
 "exploratory" system design. Take your time to think about these points, we will use this as discussion material in the
 conversation.
-- Think about how you would have a respondent fill out the questionnaire.
-- How would you make the technical setup to show a respondent the questionnaire?
+- Think about how you would have a respondent fill out the survey.
+- How would you make the technical setup to show a respondent the survey?
 - What data do you use for this?
 - How do you communicate with the respondent?
 - In certain cases, not all respondents are registered in the system in advance. For example, if you want to conduct
-a questionnaire via a link on a website. How would you arrange that?
+a survey via a link on a website. How would you arrange that?
 
 ## Working with Github
 
@@ -89,7 +89,7 @@ Ideally, you should be able to deliver this assessment within 48 hours of starti
 
 ## Finally
 We understand that you can fill in certain parts of the above specifications as liberally or strictly as you desire.
-- "As the owner of a questionnaire,"  ownership and the associated plumbing are a lot of work. It is sufficient to
+- "As the owner of a survey,"  ownership and the associated plumbing are a lot of work. It is sufficient to
 deliver the application without a security solution.
 - It is sufficient to show a working prototype of the application with the requested functionality implemented.
 Of course, it does not have to be a fully fledged, production-worthy application.
