@@ -1,0 +1,98 @@
+﻿@page "/register"
+@layout EmptyLayout
+@using Blazored.LocalStorage
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Components.Authorization
+@using oig_assessment.Application.DTOs
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+@inject ILocalStorageService LocalStorage
+
+<style>
+    form {
+        width: 300px;
+    }
+</style>
+
+<div class="d-flex align-items-center justify-content-center">
+    
+    <EditForm Model="@registerRequest" FormName="registerForm">
+        <h3>Register new user</h3>
+        
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="alert alert-danger">@ErrorMessage</div>
+        }
+
+        <div class="form-group mb-3">
+            <label for="exampleInputEmail1">Login</label>
+            <InputText @bind-Value="registerRequest.LoginName" class="form-control" placeholder="Enter user login" />
+        </div>
+        
+        <label for="exampleInputPassword1">Password</label>
+        <div class="form-group mb-3 input-group">
+            <InputText @bind-Value="registerRequest.Password" type="@inputType" class="form-control" id="exampleInputPassword1" placeholder="Password" />
+            <div class="input-group-append">
+                <button @onclick="toggleShow" class="btn btn-outline-secondary" type="button" id="button-addon2">
+                    @if (isShow)
+                    {
+                    <Icon Name="IconName.EyeSlash" />
+                    }
+                    else
+                    {
+                    <Icon Name="IconName.EyeSlashFill" />
+                    }
+                </button>
+            </div>
+        </div>
+        <Button Color="BlazorBootstrap.ButtonColor.Success" Outline="true"
+                Disabled="string.IsNullOrEmpty(registerRequest.LoginName) ||
+                            string.IsNullOrEmpty(registerRequest.Password)"
+            @onclick="RegisterUser"> Register </Button>
+
+
+    </EditForm>
+</div>
+
+@code {
+    bool isShow = true;
+    private string ErrorMessage;
+
+
+    string inputType = "password"; 
+    void toggleShow() {
+        isShow = !isShow;
+        
+        if (isShow) {
+            inputType = "password";
+        } else {
+            inputType = "text";
+        }
+    }
+
+    public RegisterRequest registerRequest = new();
+
+
+    private async Task RegisterUser()
+    {
+        try
+        {
+            var token = await AuthService.RegisterAsync(registerRequest);
+
+            if (string.IsNullOrEmpty(token))
+            {
+                ErrorMessage = "Registration failed.";
+                return;
+            }
+
+            await LocalStorage.SetItemAsync("authToken", token);
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            Console.WriteLine($"Registration error: {ex.Message}");
+        }
+    }
+}

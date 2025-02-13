@@ -1,0 +1,207 @@
+﻿@page "/surveys/create"
+@using BlazorWeb.Sevices
+@using BlazorWeb.Shared.Models
+
+@using System.ComponentModel.DataAnnotations
+@using FluentValidation
+
+@inject PreloadService PreloadService
+@inject NavigationManager Navigation
+@inject SurveyService SurveyService
+@inject IValidator<CreateSurveyDto> Validator
+
+<style>
+    .container-fields > .fields-item {
+    flex-basis: 50%;
+    max-width: 47%;
+    }
+
+    .ml-10 {
+    margin-left: 10px;
+    }
+</style>
+
+
+<div class="row">
+    <div class="d-flex justify-content-between mb-3">
+
+        <div>
+            <Button Color="ButtonColor.Secondary" @onclick="RedidectBack">
+                <Icon Name="IconName.ArrowLeft" /> Back
+            </Button>
+        </div>
+
+        <div>
+            <Button Disabled="@(!isFormValid)"
+            Color="ButtonColor.Success" @onclick="SaveSurvey">
+                <Icon Name="IconName.Floppy2Fill" /> Save
+            </Button>
+
+            <Button Color="ButtonColor.Link" Outline="true" @onclick="CancelChanges">
+                Cancel
+            </Button>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+
+    <h4>Create new survey</h4>
+    <div class="col-md-7">
+
+        <EditForm EditContext="@editContext" OnValidSubmit="HandleValidSubmit">
+            <FluentValidationValidator/>
+            <ValidationSummary />
+
+            <div class="col-md-12 mb-3">
+                <InputText
+                @bind-Value="createSurveyModel.Name" class="form-control" placeholder="Enter survey name" />
+                <ValidationMessage For="@(() => createSurveyModel.Name)" />
+            </div>
+
+            <div class="container-fields d-flex justify-content-between flex-wrap">
+                <div class="form-group mb-3 fields-item">
+                    <label class="md-3">Choose start date</label>
+                    <DateInput TValue="DateTime"
+                    @bind-Value = "createSurveyModel.StartDate"
+                    Placeholder="Enter start date"
+                    EnableMinMax="true"
+                    Min="@DateTime.Today.AddDays(0)"
+                    Max="@DateTime.Today.AddMonths(12)" />
+                    <ValidationMessage For="@(() => createSurveyModel.StartDate)" />
+                </div>
+
+                <div class="form-group mb-3 fields-item">
+                    <label class="md-3">Choose start time</label>
+                    <TimeInput TValue="TimeOnly"
+                                @bind-Value="createSurveyModel.StartDateTime" />
+                    <ValidationMessage For="@(() => createSurveyModel.StartDateTime)" />
+                </div>
+
+            </div>
+            <div class="container-fields d-flex justify-content-between">
+                <div class="form-group mb-3 fields-item">
+                    <label class="md-3">Choose end date</label>
+
+                    <DateInput TValue="DateTime"
+                    @bind-Value="createSurveyModel.EndDate"
+                    EnableMinMax="true"
+                    Min="createSurveyModel.StartDate"
+                    Max="createSurveyModel.StartDate.AddMonths(12)" />
+                    <ValidationMessage For="@(() => createSurveyModel.EndDate)" />
+                </div>
+
+                <div class="form-group mb-3 fields-item">
+                    <label class="md-3">Choose end time</label>
+
+                    <TimeInput TValue="TimeOnly"
+                               Format="TimeInputFormat.TwentyFourHour"
+                               @bind-Value="createSurveyModel.EndDateTime" />
+                    <ValidationMessage For="@(() => createSurveyModel.EndDateTime)" />
+                </div>
+            </div>
+        </EditForm>
+
+        <Button Type="ButtonType.Submit"
+        Color="ButtonColor.Success"
+        Class="mb-3"
+        Outline="true"
+        @onclick="AddQuestion"> Add question</Button>
+
+
+        <div>
+            @foreach (var questionToCreate in createSurveyModel.Questions)
+            {
+                <h5 class="mb-3">Question:</h5>
+                <div class="form-group mb-3 input-group">
+                    <InputText @bind-Value="questionToCreate.QuestionText" class="form-control" placeholder="Enter question text" />
+                    <div class="input-group-append">
+                        <Button Class="ml-10" Color="ButtonColor.Danger" Outline="true" @onclick="() => RemoveQuestion(questionToCreate)">
+                            <Icon Name="IconName.Trash2Fill" />
+                        </Button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+
+@code {
+    public CreateSurveyDto createSurveyModel = new CreateSurveyDto();
+
+    private bool isFormValid = false;
+    private EditContext editContext;
+
+    protected override void OnInitialized()
+    {
+        editContext = new EditContext(createSurveyModel);
+
+        editContext.OnFieldChanged -= HandleFieldChanged;
+
+        editContext.OnFieldChanged += HandleFieldChanged;
+
+        _ = ValidateFormAsync();
+    }
+
+    private async void HandleFieldChanged(object sender, FieldChangedEventArgs e)
+    {
+        await ValidateFormAsync();
+    }
+
+    private async Task ValidateFormAsync()
+    {
+        var validationResult = await Validator.ValidateAsync(createSurveyModel);
+
+        isFormValid = validationResult.IsValid;
+        editContext.NotifyValidationStateChanged();
+        HandleValidSubmit();
+    }
+
+
+    private void HandleValidSubmit()
+    {
+        Console.WriteLine("Survey is valid and submitted!");
+    }
+
+    private void AddQuestion()
+    {
+        createSurveyModel.Questions.Add(new CreateQuestionValueDto());
+    }
+
+    private void RemoveQuestion(CreateQuestionValueDto input)
+    {
+        createSurveyModel.Questions.Remove(input);
+    }
+
+
+    private async Task SaveSurvey()
+    {
+        PreloadService.Show(SpinnerColor.Light);
+
+        createSurveyModel.StartDate =
+            createSurveyModel.StartDate.Date.Add(createSurveyModel.StartDateTime.ToTimeSpan());
+
+        createSurveyModel.EndDate =
+            createSurveyModel.EndDate.Date.Add(createSurveyModel.EndDateTime.ToTimeSpan());
+
+
+        var createdSurveyId = await SurveyService.CreateSurveyAsync(createSurveyModel);
+
+        if (createdSurveyId is not null)
+        {
+            PreloadService.Hide();
+            Navigation.NavigateTo($"surveys/edit/{createdSurveyId}");
+        }
+    }
+
+    private void CancelChanges()
+    {
+        createSurveyModel = new CreateSurveyDto();
+    }
+
+    private void RedidectBack()
+    {
+        Navigation.NavigateTo("/surveys");
+    }
+}

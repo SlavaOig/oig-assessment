@@ -1,0 +1,127 @@
+﻿@page "/login"
+@layout EmptyLayout
+@using Blazored.LocalStorage
+@using oig_assessment.Application.DTOs
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILocalStorageService LocalStorage
+
+<style>
+    form {
+        width:300px;
+    }
+</style>
+
+<div class="d-flex align-items-center justify-content-center">
+    <EditForm Model="@loginRequest" FormName="loginForm">
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="alert alert-danger">@ErrorMessage</div>
+        }
+        <div class="form-group mb-3">
+            <label for="exampleInputEmail1">Login</label>
+            <InputText @bind-Value="loginRequest.LoginName" class="form-control" placeholder="Enter user login"/>
+        </div>
+
+        <label for="exampleInputPassword1">Password</label>
+        <div class="form-group mb-3 input-group">
+            <InputText @bind-Value="loginRequest.Password" type="@inputType" class="form-control" id="exampleInputPassword1" placeholder="Password" />
+            <div class="input-group-append">
+                <button @onclick="toggleShow" class="btn btn-outline-secondary" type="button" id="button-addon2">
+                    @if (isShow)
+                    {
+                    <Icon Name="IconName.EyeSlash" />
+                    }
+                    else
+                    {
+                    <Icon Name="IconName.EyeSlashFill" />
+                    }
+                </button>
+            </div>
+        </div>
+
+        <Button Disabled="string.IsNullOrEmpty(loginRequest.Password) ||
+                        string.IsNullOrEmpty(loginRequest.LoginName)"
+                        Type="ButtonType.Submit"
+                        Color="ButtonColor.Primary"
+                        Outline="true"
+                        @onclick="LoginUser"
+        > Login </Button>
+        
+        <Button Color="ButtonColor.Info" Outline="true" @onclick="RedidectToRegister"> Register </Button>
+
+    </EditForm>
+</div>
+
+@code {
+    bool isShow = true;
+
+    private string ErrorMessage;
+
+    private string returnUrl = "/";
+
+    string inputType = "password"; 
+    void toggleShow() {
+        isShow = !isShow;
+        
+        if (isShow) {
+            inputType = "password";
+        } else {
+            inputType = "text";
+        }
+    }
+
+    public LoginRequest loginRequest = new LoginRequest();
+
+    protected override void OnInitialized()
+    {
+        var uri = new Uri(Navigation.Uri);
+        var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        returnUrl = queryParams["returnUrl"] ?? "/";
+    }
+
+
+    private async Task LoginUser()
+    {
+        ErrorMessage = null;
+
+        try
+        {
+            var token = await AuthService.LoginAsync(loginRequest);
+
+            if (string.IsNullOrEmpty(token))
+            {
+                ErrorMessage = "Invalid login or password.";
+                return;
+            }
+
+            await LocalStorage.SetItemAsync("authToken", token);
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private void RedidectToRegister() {
+        Navigation.NavigateTo("/register");
+    }
+}
+
+@code {
+    private bool isAuthenticated;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
+        if (isAuthenticated)
+        {
+            // Redirect to the home page if the user is already authenticated
+            Navigation.NavigateTo("/");
+        }
+    }
+}

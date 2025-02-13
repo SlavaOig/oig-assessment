@@ -1,0 +1,304 @@
+﻿@page "/surveys/edit/{SurveyId:guid}"
+@using BlazorWeb.Sevices
+@using BlazorWeb.Shared.Models.Survey
+@using System.ComponentModel.DataAnnotations
+@using FluentValidation
+@inject SurveyService SurveyService
+@inject NavigationManager Navigation
+@inject PreloadService PreloadService
+@inject IValidator<UpdateSurveyDetailsDto> Validator
+
+<style>
+    .container-fields > .fields-item {
+    flex-basis: 50%;
+    max-width: 47%;
+    }
+
+    .ml-10 {
+    margin-left: 10px;
+    }
+</style>
+
+
+
+@if (surveyDetails == null)
+{
+    <span>Calling api</span>
+}
+else
+{
+
+    <div class="row">
+        <div class="d-flex justify-content-between mb-3">
+
+            <div>
+                <Button Color="ButtonColor.Secondary" @onclick="RedidectBack">
+                    <Icon Name="IconName.ArrowLeft" /> Back
+                </Button>
+            </div>
+
+            <div>
+                <Button Disabled="@(!isFormValid)"
+                Color="ButtonColor.Success" @onclick="EditSurvey">
+                    <Icon Name="IconName.Floppy2Fill" /> Save
+                </Button>
+
+                <Button Color="ButtonColor.Link" Outline="true" @onclick="CancelChanges">
+                    Cancel
+                </Button>
+
+
+                <Button Color="ButtonColor.Danger" @onclick="RemoveSurvey">
+                    <Icon Name="IconName.Trash2Fill" />
+                </Button>
+
+
+                <Button Color="ButtonColor.Primary" Disabled="surveyDetailsToUpdate.Status.Value == 1" @onclick="ChangeStatus">
+                    Change status '@surveyDetails.Status.Name' to 'Available'
+                </Button>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="row">
+        <div class="col-md-7">
+
+            <EditForm EditContext="@editContext" OnValidSubmit="HandleValidSubmit">
+                <FluentValidationValidator />
+
+                <div class="col-md-12 mb-3">
+                    <InputText @bind-Value="surveyDetailsToUpdate.Name" class="form-control" />
+                    <ValidationMessage For="@(() => surveyDetailsToUpdate.Name)" />
+                </div>
+
+                <div class="container-fields d-flex justify-content-between flex-wrap">
+                    <div class="form-group mb-3 fields-item">
+                        <label class="md-3">Choose start date</label>
+                        <DateInput TValue="DateTime"
+                        @bind-Value="surveyDetailsToUpdate.StartDate"
+                        Placeholder="Enter start date"
+                        EnableMinMax="true"
+                        Min="@DateTime.Today.AddDays(0)"
+                        Max="@DateTime.Today.AddMonths(12)" />
+                        <ValidationMessage For="@(() => surveyDetailsToUpdate.StartDate)" />
+                    </div>
+
+                    <div class="form-group mb-3 fields-item">
+                        <label class="md-3">Choose start time</label>
+                        <TimeInput TValue="TimeOnly"
+                        @bind-Value="surveyDetailsToUpdate.StartDateTime" />
+                        <ValidationMessage For="@(() => surveyDetailsToUpdate.StartDateTime)" />
+                    </div>
+
+                </div>
+                <div class="container-fields d-flex justify-content-between">
+                    <div class="form-group mb-3 fields-item">
+                        <label class="md-3">Choose end date</label>
+
+                        <DateInput TValue="DateTime"
+                        @bind-Value="surveyDetailsToUpdate.EndDate"
+                        EnableMinMax="true"
+                        Min="surveyDetailsToUpdate.StartDate"
+                        Max="surveyDetailsToUpdate.StartDate.AddMonths(12)" />
+                        <ValidationMessage For="@(() => surveyDetailsToUpdate.EndDate)" />
+                    </div>
+
+                    <div class="form-group mb-3 fields-item">
+                        <label class="md-3">Choose end time</label>
+
+                        <TimeInput TValue="TimeOnly"
+                        @bind-Value="surveyDetailsToUpdate.EndDateTime" />
+                        <ValidationMessage For="@(() => surveyDetailsToUpdate.EndDateTime)" />
+                    </div>
+                </div>
+            </EditForm>
+
+            <Button Type="ButtonType.Submit"
+            Color="ButtonColor.Success"
+            Class="mb-3"
+            Outline="true"
+            @onclick="AddQuestion">
+                Add question
+            </Button>
+
+
+            <div>
+                @foreach (var questionToUpdate in surveyDetailsToUpdate.Questions)
+                {
+                    <h5 class="mb-3">Question:</h5>
+                    <div class="form-group mb-3 input-group">
+                        <InputText @bind-Value="questionToUpdate.QuestionText" class="form-control" placeholder="Enter question text" />
+                        <div class="input-group-append">
+                            <Button Class="ml-10" Color="ButtonColor.Danger" Outline="true" @onclick="() => RemoveQuestion(questionToUpdate)">
+                                <Icon Name="IconName.Trash2Fill" />
+                            </Button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid SurveyId { get; set; }
+
+    private UpdateSurveyDetailsDto surveyDetails;
+
+    private UpdateSurveyDetailsDto surveyDetailsToUpdate = new();
+
+    private EditContext editContext;
+
+
+    private bool isFormValid = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        PreloadService.Show(SpinnerColor.Light);
+        var fetchedSurvey  = await SurveyService.GetSurveyByIdAsync(SurveyId);
+
+        if (fetchedSurvey is not null) 
+        {
+            surveyDetails = fetchedSurvey;
+            ResetEditableSurvey();
+        }
+
+        editContext = new EditContext(surveyDetailsToUpdate);
+
+        editContext.OnFieldChanged -= HandleFieldChanged;
+
+        editContext.OnFieldChanged += HandleFieldChanged;
+
+        _ = ValidateFormAsync();
+        PreloadService.Hide();
+    }
+
+
+    public void ResetEditableSurvey() {
+        if (surveyDetails is not null) 
+        {
+            surveyDetailsToUpdate = new UpdateSurveyDetailsDto
+            {
+                Id = surveyDetails.Id,
+                EndDate = surveyDetails.EndDate,
+                Name = surveyDetails.Name,
+                Questions = surveyDetails.Questions.Select(q => new UpdateQuestionDto
+                {
+                    Id = q.Id,
+                    QuestionText = q.QuestionText
+                }).ToList(),
+                StartDate = surveyDetails.StartDate,
+                EndDateTime = surveyDetails.EndDateTime,
+                StartDateTime = surveyDetails.StartDateTime
+            };
+        }
+    }
+
+    private async void HandleFieldChanged(object sender, FieldChangedEventArgs e)
+    {
+        await ValidateFormAsync();
+    }
+
+
+    private async Task ValidateFormAsync()
+    {
+        var validationResult = await Validator.ValidateAsync(surveyDetailsToUpdate);
+
+        isFormValid = validationResult.IsValid;
+        editContext.NotifyValidationStateChanged();
+    }
+
+    private void AddQuestion()
+    {
+        surveyDetailsToUpdate.Questions.Add(new UpdateQuestionDto());
+    }
+
+    private void RemoveQuestion(UpdateQuestionDto input)
+    {
+        surveyDetailsToUpdate.Questions.Remove(input);
+    }
+
+    private async void EditSurvey()
+    {
+        PreloadService.Show(loadingText: "Updating..");
+
+        if (!editContext.Validate()) {
+            return;
+        }
+
+        surveyDetailsToUpdate.StartDate =
+            surveyDetailsToUpdate.StartDate.Date.Add(surveyDetailsToUpdate.StartDateTime.ToTimeSpan());
+
+        surveyDetailsToUpdate.EndDate =
+            surveyDetailsToUpdate.EndDate.Date.Add(surveyDetailsToUpdate.EndDateTime.ToTimeSpan());
+
+        var success = await SurveyService.UpdateSurveyAsync(surveyDetailsToUpdate);
+
+        if (success) {
+            PreloadService.Hide();
+        } else  {
+            Console.WriteLine("Failed to update survey.");
+        }
+    }
+}
+
+
+
+
+@code {
+
+    private void RedidectBack()
+    {
+        Navigation.NavigateTo("/surveys");
+    }
+
+    private void CancelChanges()
+    {
+        if (surveyDetails is not null)
+        {
+            surveyDetailsToUpdate.Name = surveyDetails.Name;
+            surveyDetailsToUpdate.StartDate = surveyDetails.StartDate;
+            surveyDetailsToUpdate.EndDate = surveyDetails.EndDate;
+            surveyDetailsToUpdate.EndDateTime = surveyDetails.EndDateTime;
+            surveyDetailsToUpdate.StartDateTime = surveyDetails.StartDateTime;
+        }
+    }
+
+    private async void RemoveSurvey() 
+    {
+        PreloadService.Show(loadingText: "Removing..");
+        var isRemoved = await SurveyService.RemoveSurveyAsync(surveyDetailsToUpdate.Id.ToString().ToLower());
+
+        if (isRemoved) {
+            PreloadService.Hide();
+
+            RedidectBack();
+        }
+    }
+}
+
+@code {
+    private async Task ChangeStatus() 
+    {
+        PreloadService.Show(SpinnerColor.Light);
+        if (surveyDetails is not null)
+        {
+            var success = await SurveyService.ChangeSurveyStatusAsync(surveyDetails.Id, 2);
+
+            if (success) {
+                PreloadService.Hide();
+                RedidectBack();
+            }
+        }
+    }
+}
+
+
+@code {
+    private void HandleValidSubmit()
+    {
+        Console.WriteLine("Survey is valid and submitted!");
+    }
+}

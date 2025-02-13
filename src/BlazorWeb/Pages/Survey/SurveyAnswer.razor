@@ -1,0 +1,139 @@
+﻿@page "/surveys/answer/{SurveyId:guid}"
+@layout EmptyLayout
+@using BlazorWeb.Sevices
+@using BlazorWeb.Shared.Models.Survey
+@using System.ComponentModel.DataAnnotations
+@using FluentValidation
+@inject SurveyService SurveyService
+@inject NavigationManager Navigation
+@inject PreloadService PreloadService
+@inject IValidator<PublicSurveyQuestionsDto> Validator
+
+<style>
+    .container-fields > .fields-item {
+        flex-basis: 50%;
+        max-width: 47%;
+    }
+
+    .ml-10 {
+        margin-left: 10px;
+    }
+</style>
+
+@if (surveyQuestions == null)
+{
+    <span>Calling API...</span>
+}
+else
+{
+    <div class="row">
+        <div class="d-flex justify-content-between mb-3">
+            <div>
+                <Button Disabled="@(!isFormValid)"
+                        Color="ButtonColor.Success" @onclick="SaveAnswers">
+                    <Icon Name="IconName.Floppy2Fill" /> Save
+                </Button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <EditForm EditContext="@editContext" OnValidSubmit="ValidateFormAsync" FormName="Form">
+            <FluentValidationValidator />
+            <ValidationSummary />
+
+            @foreach (var question in surveyQuestions.Questions)
+            {
+                <div class="mb-3">
+                    <label for="@($"answer-{question.Id}")" class="form-label">@question.QuestionText</label>
+                    <InputText id="@($"answer-{question.Id}")" class="form-control"
+                               @bind-Value="question.QuestionAnswer" />
+                    <ValidationMessage For="@(() => question.QuestionAnswer)" />
+                </div>
+            }
+        </EditForm>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid SurveyId { get; set; }
+
+    public bool isFormValid = false;
+    private PublicSurveyQuestionsDto surveyQuestions = new();
+    #nullable enable
+    private EditContext? editContext;
+    private ValidationMessageStore validationMessageStore = null!;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        editContext = new(surveyQuestions);
+
+        PreloadService.Show(SpinnerColor.Light);
+        var fetchedSurveyQuestions = await SurveyService.GetSurveyQuestionsByIdAsync(SurveyId);
+
+        if (fetchedSurveyQuestions is not null)
+        {
+            surveyQuestions = new PublicSurveyQuestionsDto
+            {
+                Questions = fetchedSurveyQuestions
+            };
+
+
+            editContext = new(surveyQuestions);
+            await base.OnInitializedAsync();
+            validationMessageStore = new ValidationMessageStore(editContext);
+
+            editContext.OnFieldChanged += async (sender, args) => await ValidateFormAsync();
+            PreloadService.Hide();
+        }
+
+       
+    }
+
+    private async Task SaveAnswers()
+    {
+        await ValidateFormAsync();
+
+        if (!isFormValid) return;
+
+        var answers = surveyQuestions.Questions
+            .Where(q => !string.IsNullOrWhiteSpace(q.QuestionAnswer))
+            .Select(q => new CreateAnswerQuestion
+                {
+                    QuestionId = q.Id,
+                    SurveyId = SurveyId,
+                    QuestionAnswer = q.QuestionAnswer
+                }).ToList();
+
+        if (answers.Count == 0)
+        {
+            return;
+        }
+
+        await SurveyService.SaveAnswers(answers);
+        Navigation.NavigateTo("/surveys");
+    }
+
+    private async Task HandleFieldChanged(ChangeEventArgs e)
+    {
+        await ValidateFormAsync();
+    }
+
+    private async Task ValidateFormAsync()
+    {
+        if (editContext is null || surveyQuestions is null) return;
+
+        var validationResult = await Validator.ValidateAsync(surveyQuestions);
+
+        validationMessageStore.Clear();
+
+        foreach (var error in validationResult.Errors)
+        {
+            validationMessageStore.Add(editContext.Field(error.PropertyName), error.ErrorMessage);
+        }
+
+        isFormValid = validationResult.IsValid;
+        editContext.NotifyValidationStateChanged();
+    }
+}
