@@ -1,0 +1,78 @@
+﻿@page "/survey-users"
+@using BlazorWeb.Sevices
+@using BlazorWeb.Shared.Models
+@using oig_assessment.Domain.Entities
+@inject IHttpClientFactory HttpClientFactory
+@inject UserService UserService
+@inject PreloadService PreloadService
+
+
+<PageTitle>Users List</PageTitle>
+
+@if (isLoading)
+{
+    <p>Loading users...</p>
+}
+else if (users == null)
+{
+    <p>No users found.</p>
+}
+@if (users == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+
+    <Grid TItem="UserDto"
+    Class="table table-hover table-bordered table-striped"
+    DataProvider="UsersDataProvider"
+    AllowSorting="true">
+        <GridColumns>
+            <GridColumn TItem="UserDto" HeaderText="Id" SortKeySelector="@(item => item.Id)">
+                @context.Id
+            </GridColumn>
+            <GridColumn TItem="UserDto" HeaderText="User Name" SortKeySelector="@(item => item.LoginName)" IsDefaultSortColumn="true" SortDirection="BlazorBootstrap.SortDirection.Descending">
+                @context.LoginName
+            </GridColumn>
+            <GridColumn TItem="UserDto" HeaderText="Date created" SortKeySelector="@(item => item.CreatedOn)">
+                @context.CreatedOn.ToString("MM.dd.yyyy")
+            </GridColumn>
+            <GridColumn TItem="UserDto" HeaderText="Role" SortKeySelector="@(item => item.Role)">
+                @context.Role
+            </GridColumn>
+        </GridColumns>
+
+    </Grid>
+}
+
+@code {
+    private IEnumerable<UserDto> users;
+
+    private async Task<GridDataProviderResult<UserDto>> UsersDataProvider(GridDataProviderRequest<UserDto> request)
+    {
+        return await Task.FromResult(request.ApplyTo(users));
+    }
+
+
+
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            PreloadService.Show();
+            users = await UserService.GetAllUsers();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"zError loading users: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            PreloadService.Hide();
+        }
+    }
+}

@@ -1,0 +1,176 @@
+﻿@page "/surveys"
+@using BlazorWeb.Sevices
+@using BlazorWeb.Shared.Models.Survey
+@inject NavigationManager Navigation
+@inject SurveyService SurveyService
+@inject JWTService JWTService
+
+@inject PreloadService PreloadService
+
+<style>
+    .m-10 {
+        margin: 10px
+    }
+    .status-none{
+
+    }
+    .status-concept {
+        cursor: default;
+        color: #ffc107;
+    }
+    .status-concept:hover {
+        color: #fff;
+    }
+
+    .status-available {
+        cursor: default;
+        color: #0dcaf0;
+    }
+    .status-available:hover {
+        color: #000;
+    }
+    .status-active {
+        cursor: default;
+        color: #198754;
+    }
+    .status-active:hover {
+        color: #fff;
+    }
+    .status-closed {
+        cursor: default;
+        color: #fff
+    }
+    .status-closed:hover {
+        color: #000
+    }
+</style>
+
+<h3>Surveys overview</h3>
+
+<Button Class="mb-3" Color="ButtonColor.Success" Outline="true" @onclick="RedirectToCreate"> Create </Button>
+
+<div class="row">
+
+    <Grid TItem="PublicSurveyDto"
+    Class="table table-hover table-bordered table-striped"
+    DataProvider="SurveysDataProvider"
+    AllowPaging="true"
+    AllowSorting="true"
+    PageSize="10"
+    Responsive="true">
+
+        <GridColumn TItem="PublicSurveyDto" HeaderText="Name" PropertyName="Name" SortString="Name" SortKeySelector="item => item.Name" HeaderTextAlignment="Alignment.Center" TextAlignment="Alignment.Center">
+            @context.Name
+        </GridColumn>
+        <GridColumn TItem="PublicSurveyDto" HeaderText="Start Date" SortString="StartDate" PropertyName="StartDate" SortKeySelector="item => item.StartDate">
+            @context.StartDate.ToString("MM.dd.yyyy")
+        </GridColumn>
+        <GridColumn TItem="PublicSurveyDto" HeaderText="Start Time" SortString="StartDate" PropertyName="StartDate" SortKeySelector="item => item.StartDate">
+            @context.StartDate.ToString("hh:mm tt")
+        </GridColumn>
+        <GridColumn TItem="PublicSurveyDto" HeaderText="End Date" SortString="EndDate" PropertyName="EndDate" SortKeySelector="item => item.EndDate">
+            @context.EndDate.ToString("MM.dd.yyyy")
+        </GridColumn>
+        <GridColumn TItem="PublicSurveyDto" HeaderText="End Time" SortString="EndDate" PropertyName="EndDate" SortKeySelector="item => item.EndDate">
+            @context.EndDate.ToString("hh:mm tt")
+        </GridColumn>
+        <GridColumn TItem="PublicSurveyDto" HeaderText="Status" PropertyName="Status" SortString="Status" SortKeySelector="item => item.Status.ToString()">
+            <label class="btn btn-outline-@GetStatusClass(context.Status.Name)">@context.Status.Name</label>
+        </GridColumn>
+
+        <GridColumn TItem="PublicSurveyDto" HeaderText="Actions">
+            @if (context.CreatedBy.ToString().ToLower() == CurrentUserId) {
+                <Button Disabled="@(!context.IsEditable)" Class="m-10" Color="ButtonColor.Primary" @onclick="() => RedirectToUpdate(context.Id)">
+                    <Icon Name="IconName.Pen" /> Edit
+                </Button>
+            }
+
+            <Button Disabled="!context.IsAnswerable" Class="m-10" Color="ButtonColor.Primary" @onclick="() => RedirectToAnswer(context.Id)">
+                <Icon Name="IconName.PatchQuestionFill" /> Answer
+            </Button>
+        </GridColumn>
+    </Grid>
+</div>
+
+
+@code {
+    private List<PublicSurveyDto> surveysToDisplay = default!;
+
+    private string CurrentUserId;
+
+    private async Task<GridDataProviderResult<PublicSurveyDto>> SurveysDataProvider(GridDataProviderRequest<PublicSurveyDto> request)
+    {
+        PreloadService.Show(SpinnerColor.Light);
+        string sortString = "";
+        SortDirection sortDirection = SortDirection.None;
+
+        if (request.Sorting is not null && request.Sorting.Any())
+        {
+            sortString = request.Sorting.FirstOrDefault()!.SortString;
+            sortDirection = request.Sorting.FirstOrDefault()!.SortDirection;
+        }
+
+        var result = await SurveyService.GetSurveysAsync(sortString, sortDirection, request.PageNumber, request.PageSize);
+
+        var publicSurveys = result?.Items.Select(s => new PublicSurveyDto
+        {
+            Id = s.Id,
+            Name = s.Name,
+            StartDate = s.StartDate,
+            EndDate = s.EndDate,
+            Status = new SurveyStatus 
+            {
+                Value = s.Status.Value,
+                Name = s.Status.Name
+            },
+            CreatedBy = s.CreatedBy,
+            UpdatedBy = s.UpdatedBy,
+            IsEditable = s.Status.Value != 1 ? false : true,
+            IsAnswerable = s.Status.Value == 3 ? true : false
+        }).ToList() ?? new List<PublicSurveyDto>();
+        
+        surveysToDisplay = publicSurveys;
+
+        CurrentUserId = await JWTService.GetCurrentUserId();
+        
+        PreloadService.Hide();
+
+        return new GridDataProviderResult<PublicSurveyDto>
+        {
+            Data = publicSurveys,
+            TotalCount = result?.Count ?? 0
+        };
+
+    }
+
+
+    private string GetStatusClass(string status)
+    {
+        return status.ToLower() switch
+        {
+            "none" => "dark status-none",
+            "concept" => "primary status-concept",
+            "available" => "info status-available",
+            "active" => "success status-active",
+            "closed" => "light status-closed",
+            _ => ""
+        };
+    }
+}
+
+
+@code {
+    private void RedirectToCreate() {
+        Navigation.NavigateTo("/surveys/create");
+    }
+
+    private void RedirectToUpdate(Guid surveyId)
+    {
+        Navigation.NavigateTo($"/surveys/edit/{surveyId}");
+    }
+
+    private void RedirectToAnswer(Guid surveyId)
+    {
+        Navigation.NavigateTo($"/surveys/answer/{surveyId}");
+    }
+}

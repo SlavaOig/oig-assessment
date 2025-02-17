@@ -1,0 +1,25 @@
+﻿@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        var currentUrl = Navigation.Uri.ToLower();
+        if (currentUrl.Contains("/surveys/answer"))
+        {
+            return;
+        }
+
+        if (user?.Identity?.IsAuthenticated != true)
+        {
+            var returnUrl = Uri.EscapeDataString(Navigation.Uri);
+            Navigation.NavigateTo($"/login?returnUrl={returnUrl}");
+        }
+    }
+}
